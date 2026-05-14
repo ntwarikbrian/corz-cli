@@ -1,6 +1,6 @@
 import type { LicensePayload } from "./types"
 
-export const EMBEDDED_PUBLIC_KEY_BASE64 = "bZt8eWJqhvnVmLrVTUA5EJfCJ5EbaMje3+f3EmgwQXc="
+export const EMBEDDED_PUBLIC_KEY_BASE64 = "0GlpjZvvC9M9yUtn+mnxPCFfOMvc2iu0pXEAcFWFiGM="
 
 function getPublicKey() {
   if (process.env.NODE_ENV === "test" && process.env.CORZ_AUTH_PUBLIC_KEY) {
