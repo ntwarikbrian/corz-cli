@@ -112,6 +112,11 @@ export function FormatError(input: unknown) {
   if (isTaggedError(input, "UICancelledError") || NamedError.hasName(input, "UICancelledError")) {
     return ""
   }
+
+  // LicenseGateError: license not valid
+  if (isRecord(input) && input.name === "LicenseGateError") {
+    return stringField(input, "message") ?? ""
+  }
 }
 
 export function FormatUnknownError(input: unknown): string {

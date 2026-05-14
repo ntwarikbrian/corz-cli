@@ -1,13 +1,8 @@
 import { getDeviceId } from "./device"
 import { verifyPayload } from "./verification"
 import { write } from "./storage"
+import { load as loadConfig } from "@/config/loader"
 import type { ActivationResult, ProgressCallback, LicensePayload } from "./types"
-
-const DEFAULT_ACTIVATE_URL = "https://api.corz.ai/v1/activate"
-
-const DEFAULT_TIMEOUT = 30000
-const MAX_RETRIES = 3
-const RETRY_DELAY_BASE = 1000
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -42,35 +37,31 @@ async function attemptActivation(
 
 export async function activateLicense(token: string, onProgress?: ProgressCallback): Promise<ActivationResult> {
   const device = await getDeviceId()
-  const url = process.env.CORZ_AUTH_URL ?? DEFAULT_ACTIVATE_URL
-  const timeout = Number(process.env.CORZ_AUTH_TIMEOUT_MS) || DEFAULT_TIMEOUT
-  const maxRetries = Number(process.env.CORZ_AUTH_MAX_RETRIES) || MAX_RETRIES
-  const retryDelay = Number(process.env.CORZ_AUTH_RETRY_DELAY_MS) || RETRY_DELAY_BASE
-  const sharedSecret = process.env.CORZ_CONVEX_SHARED_SECRET
+  const config = loadConfig()
 
   const headers: Record<string, string> = { "content-type": "application/json" }
-  if (sharedSecret) {
-    headers["authorization"] = `Bearer ${sharedSecret}`
+  if (config.sharedSecret) {
+    headers["authorization"] = `Bearer ${config.sharedSecret}`
   }
 
   const body = { token, device_id: device.deviceId }
   let lastError: Error | undefined
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+  for (let attempt = 0; attempt < config.authMaxRetries; attempt++) {
     const isRetry = attempt > 0
-    const adaptiveTimeout = Math.min(timeout * Math.pow(1.5, attempt), 60000)
+    const adaptiveTimeout = Math.min(config.authTimeoutMs * Math.pow(1.5, attempt), 60000)
 
     if (isRetry) {
-      const delay = retryDelay * attempt
-      onProgress?.(`Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`)
+      const delay = config.retryDelayMs * attempt
+      onProgress?.(`Retrying in ${delay}ms... (attempt ${attempt + 1}/${config.authMaxRetries})`)
       await sleep(delay)
     } else {
-      onProgress?.(`Attempting activation (1/${maxRetries})...`)
+      onProgress?.(`Attempting activation (1/${config.authMaxRetries})...`)
     }
 
     try {
       onProgress?.(`Sending request (timeout: ${Math.round(adaptiveTimeout / 1000)}s)...`)
-      const response = await attemptActivation(url, headers, body, adaptiveTimeout, onProgress)
+      const response = await attemptActivation(config.authUrl, headers, body, adaptiveTimeout, onProgress)
 
       if (!response.ok) {
         const details = await response
@@ -111,8 +102,8 @@ export async function activateLicense(token: string, onProgress?: ProgressCallba
         return { ok: false, error: lastError.message }
       }
 
-      if (attempt === maxRetries - 1) {
-        return { ok: false, error: `Activation failed after ${maxRetries} attempts. ${lastError.message}` }
+      if (attempt === config.authMaxRetries - 1) {
+        return { ok: false, error: `Activation failed after ${config.authMaxRetries} attempts. ${lastError.message}` }
       }
 
       onProgress?.(`Attempt ${attempt + 1} failed: ${isNetworkError ? "Network error" : "Server error"}`)
