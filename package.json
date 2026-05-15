@@ -16,6 +16,8 @@
     "upgrade-opentui": "bun run script/upgrade-opentui.ts",
     "postinstall": "bun run --cwd packages/corz fix-node-pty",
     "prepare": "husky",
+    "admin:dev": "bun run --cwd packages/admin dev",
+    "admin:build": "bun run --cwd packages/admin build",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
     "test": "echo 'do not run tests from root' && exit 1"
