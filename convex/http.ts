@@ -65,18 +65,27 @@ http.route({
     const expiresAt = readNumber(body, "expiresAt")
     const maxUses = readNumber(body, "maxUses")
 
-    if (!fullName || !userID || !Number.isFinite(expiresAt)) {
-      return jsonError("invalid_request", "fullName, userId, and expiresAt are required", 400)
+    if (!fullName || !Number.isFinite(expiresAt)) {
+      return jsonError("invalid_request", "fullName and expiresAt are required", 400)
     }
 
     const maxUsesValue = Number.isFinite(maxUses) && maxUses > 0 ? maxUses : 1
 
-    const result = await ctx.runMutation(internal.licenses.createToken, {
+    if (userID) {
+      const result = await ctx.runMutation(internal.licenses.createToken, {
+        fullName,
+        userId: userID,
+        expiresAt,
+        maxUses: maxUsesValue,
+        now: Date.now(),
+      })
+      return Response.json({ ok: true, token: result.token })
+    }
+
+    const result = await ctx.runMutation(internal.licenses.createLicenseTokenInternal, {
       fullName,
-      userId: userID,
       expiresAt,
       maxUses: maxUsesValue,
-      now: Date.now(),
     })
 
     return Response.json({ ok: true, token: result.token })
@@ -199,6 +208,20 @@ http.route({
     }
 
     return Response.json({ ok: true })
+  }),
+})
+
+http.route({
+  path: "/admin/init-default-admin",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorized(request, process.env.CORZ_CONVEX_ADMIN_KEY)) {
+      return jsonError("unauthorized", "Unauthorized request", 401)
+    }
+
+    const result = await ctx.runMutation(internal.admins.initDefaultAdmin)
+
+    return Response.json(result)
   }),
 })
 

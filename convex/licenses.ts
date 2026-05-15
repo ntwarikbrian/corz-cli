@@ -1,4 +1,4 @@
-import { internalMutation, query, mutation } from "./_generated/server"
+import { internalMutation, query } from "./_generated/server"
 import { v } from "convex/values"
 
 function generateToken(): string {
@@ -257,7 +257,7 @@ function generateUserId(): string {
   return result
 }
 
-export const createLicenseToken = mutation({
+export const createLicenseTokenInternal = internalMutation({
   args: {
     fullName: v.optional(v.string()),
     expiresAt: v.number(),
@@ -289,39 +289,6 @@ export const createLicenseToken = mutation({
   },
 })
 
-export const updateLicense = mutation({
-  args: {
-    id: v.id("licenses"),
-    fullName: v.optional(v.string()),
-    status: v.optional(statusValidator),
-    maxUses: v.optional(v.number()),
-    expiresAt: v.optional(v.number()),
-  },
-  returns: v.object({
-    success: v.boolean(),
-    error: v.optional(v.string()),
-  }),
-  handler: async (ctx, args) => {
-    const existing = await ctx.db.get(args.id)
-    if (!existing) {
-      return { success: false, error: "License not found" }
-    }
-
-    const patch: Record<string, unknown> = {}
-    if (args.fullName !== undefined) patch.fullName = args.fullName
-    if (args.status !== undefined) patch.status = args.status
-    if (args.maxUses !== undefined) patch.maxUses = args.maxUses
-    if (args.expiresAt !== undefined) patch.expiresAt = args.expiresAt
-
-    if (Object.keys(patch).length === 0) {
-      return { success: false, error: "No fields to update" }
-    }
-
-    await ctx.db.patch(args.id, patch)
-    return { success: true }
-  },
-})
-
 export const updateLicenseInternal = internalMutation({
   args: {
     id: v.id("licenses"),
@@ -347,25 +314,6 @@ export const updateLicenseInternal = internalMutation({
     }
 
     await ctx.db.patch(args.id, patch)
-    return { success: true }
-  },
-})
-
-export const deleteLicense = mutation({
-  args: {
-    id: v.id("licenses"),
-  },
-  returns: v.object({
-    success: v.boolean(),
-    error: v.optional(v.string()),
-  }),
-  handler: async (ctx, args) => {
-    const existing = await ctx.db.get(args.id)
-    if (!existing) {
-      return { success: false, error: "License not found" }
-    }
-
-    await ctx.db.delete(args.id)
     return { success: true }
   },
 })

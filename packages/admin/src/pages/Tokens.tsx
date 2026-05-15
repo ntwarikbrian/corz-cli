@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react'
-import { useQuery, useMutation } from 'convex/react'
+import { useQuery } from 'convex/react'
 import { Plus, Filter } from 'lucide-react'
 import { Layout } from '../components/Layout'
 import { TokenTable, type License } from '../components/TokenTable'
 import { CreateTokenModal } from '../components/CreateTokenModal'
 import { EditTokenModal } from '../components/EditTokenModal'
 import { api } from '../convex/_generated/api'
+import * as AdminApi from '../lib/admin-api'
 
 type StatusFilter = 'all' | 'unused' | 'activated' | 'expired' | 'revoked'
 
@@ -14,9 +15,6 @@ export function Tokens() {
   const [editingLicense, setEditingLicense] = useState<License | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const licenses = useQuery(api.licenses.getAllLicenses)
-  const createTokenMutation = useMutation(api.licenses.createLicenseToken)
-  const updateLicenseMutation = useMutation(api.licenses.updateLicense)
-  const deleteLicenseMutation = useMutation(api.licenses.deleteLicense)
   const [_creating, setCreating] = useState(false)
 
   const filteredLicenses = useMemo(() => {
@@ -32,16 +30,7 @@ export function Tokens() {
   }): Promise<string | null> => {
     setCreating(true)
     try {
-      const result = await createTokenMutation({
-        fullName: data.fullName,
-        expiresAt: data.expiresAt,
-        maxUses: data.maxUses,
-      })
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to create token')
-      }
-
+      const result = await AdminApi.createToken(data)
       return result.token || null
     } catch (error) {
       console.error('Failed to create token:', error)
@@ -60,16 +49,7 @@ export function Tokens() {
     expiresAt: number
   }): Promise<boolean> => {
     try {
-      const result = await updateLicenseMutation({
-        id: data.id,
-        fullName: data.fullName,
-        status: data.status,
-        maxUses: data.maxUses,
-        expiresAt: data.expiresAt,
-      })
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update token')
-      }
+      await AdminApi.updateLicense(data)
       setEditingLicense(null)
       return true
     } catch (error) {
@@ -83,10 +63,7 @@ export function Tokens() {
     if (!window.confirm(`Are you sure you want to delete token "${license.token}"? This action cannot be undone.`)) return
 
     try {
-      const result = await deleteLicenseMutation({ id: license._id })
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to delete token')
-      }
+      await AdminApi.deleteLicense(license._id)
     } catch (error) {
       console.error('Failed to delete token:', error)
       alert('Failed to delete token: ' + (error instanceof Error ? error.message : 'Unknown error'))

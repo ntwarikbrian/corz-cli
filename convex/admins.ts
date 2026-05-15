@@ -117,7 +117,7 @@ export const getAdminByEmail = query({
   },
 })
 
-export const initDefaultAdmin = mutation({
+export const initDefaultAdmin = internalMutation({
   args: {},
   returns: v.object({
     success: v.boolean(),
