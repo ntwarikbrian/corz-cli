@@ -30,8 +30,7 @@ import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { ActivateCommand } from "./cli/cmd/activate"
-import { verifyLicense } from "@/auth/verification"
-import { load as loadLicenseConfig } from "@/config/loader"
+import { LicenseBootstrap } from "@/runtime/bootstrap"
 import { DbCommand } from "./cli/cmd/db"
 import path from "path"
 import { Global } from "@corz-ai/core/global"
@@ -68,15 +67,6 @@ function show(out: string) {
     return
   }
   process.stderr.write(out)
-}
-
-function shouldBypassLicenseCheck(args: string[]) {
-  if (args.length === 0) return false
-  if (args.includes("--help") || args.includes("-h")) return true
-  if (args.includes("--version") || args.includes("-v")) return true
-  const command = args.find((x) => !x.startsWith("-"))
-  if (!command) return false
-  return command === "activate"
 }
 
 const cli = yargs(args)
@@ -121,27 +111,8 @@ const cli = yargs(args)
     process.env.CORZ = "1"
     process.env.CORZ_PID = String(process.pid)
 
-    if (!loadLicenseConfig().disableLicenseGate && !shouldBypassLicenseCheck(process.argv.slice(2))) {
-      const license = await verifyLicense()
-      if (!license.ok) {
-        let message: string
-        switch (license.code) {
-          case "missing":
-            message = `No license found. Run \`corz activate\` to activate this device.`
-            break
-          case "expired":
-            message = `License expired. Run \`corz activate\` to activate with a new token.`
-            break
-          case "device_mismatch":
-            message = `License is bound to a different device. Run \`corz activate\` to activate this device.`
-            break
-          default:
-            message = `License check failed: ${license.message}\nRun \`corz activate\` to activate this device.`
-        }
-        const err = new Error(message)
-        err.name = "LicenseGateError"
-        throw err
-      }
+    if (!LicenseBootstrap.shouldBypass(process.argv.slice(2))) {
+      await LicenseBootstrap.check()
     }
 
     Log.Default.info("corz", {
