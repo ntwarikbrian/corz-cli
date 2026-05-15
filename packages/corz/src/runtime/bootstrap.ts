@@ -92,6 +92,21 @@ export function gateMessage(code: string, message: string): string {
   }
 }
 
+const LICENSE_CHECK_INTERVAL_MS = 60_000
+
+export function startLicenseMonitor(): void {
+  const config = loadLicenseConfig()
+  if (config.disableLicenseGate) return
+
+  setInterval(async () => {
+    const result = await verifyLicense()
+    if (!result.ok && result.code === "expired") {
+      process.stderr.write("\n" + gateMessage("expired", "License has expired during this session") + "\n")
+      process.exit(1)
+    }
+  }, LICENSE_CHECK_INTERVAL_MS).unref()
+}
+
 export async function check(): Promise<void> {
   const config = loadLicenseConfig()
   if (config.disableLicenseGate) return
@@ -102,6 +117,8 @@ export async function check(): Promise<void> {
     err.name = "LicenseGateError"
     throw err
   }
+
+  startLicenseMonitor()
 }
 
 export * as LicenseBootstrap from "./bootstrap"
