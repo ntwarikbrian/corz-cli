@@ -4,15 +4,19 @@ import { Plus, Filter } from 'lucide-react'
 import { Layout } from '../components/Layout'
 import { TokenTable, type License } from '../components/TokenTable'
 import { CreateTokenModal } from '../components/CreateTokenModal'
+import { EditTokenModal } from '../components/EditTokenModal'
 import { api } from '../convex/_generated/api'
 
 type StatusFilter = 'all' | 'unused' | 'activated' | 'expired' | 'revoked'
 
 export function Tokens() {
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [editingLicense, setEditingLicense] = useState<License | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const licenses = useQuery(api.licenses.getAllLicenses)
   const createTokenMutation = useMutation(api.licenses.createLicenseToken)
+  const updateLicenseMutation = useMutation(api.licenses.updateLicense)
+  const deleteLicenseMutation = useMutation(api.licenses.deleteLicense)
   const [_creating, setCreating] = useState(false)
 
   const filteredLicenses = useMemo(() => {
@@ -48,6 +52,47 @@ export function Tokens() {
     }
   }
 
+  const handleEdit = async (data: {
+    id: string
+    fullName: string
+    status: License['status']
+    maxUses: number
+    expiresAt: number
+  }): Promise<boolean> => {
+    try {
+      const result = await updateLicenseMutation({
+        id: data.id,
+        fullName: data.fullName,
+        status: data.status,
+        maxUses: data.maxUses,
+        expiresAt: data.expiresAt,
+      })
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update token')
+      }
+      setEditingLicense(null)
+      return true
+    } catch (error) {
+      console.error('Failed to update token:', error)
+      alert('Failed to update token: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      return false
+    }
+  }
+
+  const handleDelete = async (license: License) => {
+    if (!window.confirm(`Are you sure you want to delete token "${license.token}"? This action cannot be undone.`)) return
+
+    try {
+      const result = await deleteLicenseMutation({ id: license._id })
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete token')
+      }
+    } catch (error) {
+      console.error('Failed to delete token:', error)
+      alert('Failed to delete token: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    }
+  }
+
   return (
     <Layout>
       <div className="mb-8 flex items-center justify-between">
@@ -71,7 +116,7 @@ export function Tokens() {
             </select>
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => setIsCreateModalOpen(true)}
             className="btn-primary flex items-center text-sm"
           >
             <Plus className="w-4 h-4 mr-2" strokeWidth={2} />
@@ -81,13 +126,26 @@ export function Tokens() {
       </div>
 
       <div className="card p-6">
-        <TokenTable licenses={filteredLicenses} loading={licenses === undefined} filterStatus={statusFilter} />
+        <TokenTable
+          licenses={filteredLicenses}
+          loading={licenses === undefined}
+          filterStatus={statusFilter}
+          onEdit={setEditingLicense}
+          onDelete={handleDelete}
+        />
       </div>
 
       <CreateTokenModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
         onCreate={handleCreateToken}
+      />
+
+      <EditTokenModal
+        isOpen={editingLicense !== null}
+        license={editingLicense}
+        onClose={() => setEditingLicense(null)}
+        onSave={handleEdit}
       />
     </Layout>
   )

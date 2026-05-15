@@ -138,6 +138,70 @@ http.route({
   }),
 })
 
+http.route({
+  path: "/admin/update-license",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorized(request, process.env.CORZ_CONVEX_ADMIN_KEY)) {
+      return jsonError("unauthorized", "Unauthorized request", 401)
+    }
+
+    const body = await request.json().catch(() => null)
+    const id = readString(body, "id")
+    const fullName = readString(body, "fullName")
+    const status = readString(body, "status")
+    const maxUses = readNumber(body, "maxUses")
+    const expiresAt = readNumber(body, "expiresAt")
+
+    if (!id) {
+      return jsonError("invalid_request", "id is required", 400)
+    }
+
+    if (status && !["unused", "activated", "expired", "revoked"].includes(status)) {
+      return jsonError("invalid_request", "status must be unused, activated, expired, or revoked", 400)
+    }
+
+    const args: Record<string, unknown> = { id }
+    if (fullName) args.fullName = fullName
+    if (status) args.status = status
+    if (Number.isFinite(maxUses)) args.maxUses = maxUses
+    if (Number.isFinite(expiresAt)) args.expiresAt = expiresAt
+
+    const result = await ctx.runMutation(internal.licenses.updateLicenseInternal, args as any)
+
+    if (!result.success) {
+      return jsonError("internal_error", result.error || "Failed to update license", 500)
+    }
+
+    return Response.json({ ok: true })
+  }),
+})
+
+http.route({
+  path: "/admin/delete-license",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorized(request, process.env.CORZ_CONVEX_ADMIN_KEY)) {
+      return jsonError("unauthorized", "Unauthorized request", 401)
+    }
+
+    const body = await request.json().catch(() => null)
+    const id = readString(body, "id")
+
+    if (!id) {
+      return jsonError("invalid_request", "id is required", 400)
+    }
+
+    const result = await ctx.runMutation(internal.licenses.deleteLicenseInternal, { id })
+
+    if (!result.success) {
+      return jsonError("internal_error", result.error || "Failed to delete license", 500)
+    }
+
+    return Response.json({ ok: true })
+  }),
+})
+
 export default http
 
 function authorized(request: Request, secret?: string) {

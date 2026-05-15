@@ -1,9 +1,11 @@
 import { format } from 'date-fns'
-import { Copy, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
+import { Copy, CheckCircle, XCircle, Clock, AlertCircle, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
+import type { Id } from '../convex/_generated/dataModel'
+
 export interface License {
-  _id: string
+  _id: Id<"licenses">
   token: string
   fullName?: string
   userId: string
@@ -20,6 +22,8 @@ interface TokenTableProps {
   licenses: License[] | undefined
   loading?: boolean
   filterStatus?: 'all' | 'unused' | 'activated' | 'expired' | 'revoked'
+  onEdit?: (license: License) => void
+  onDelete?: (license: License) => void
 }
 
 function StatusBadge({ status }: { status: License['status'] }) {
@@ -47,7 +51,7 @@ function StatusBadge({ status }: { status: License['status'] }) {
   )
 }
 
-export function TokenTable({ licenses, loading, filterStatus = 'all' }: TokenTableProps) {
+export function TokenTable({ licenses, loading, filterStatus = 'all', onEdit, onDelete }: TokenTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const copyToClipboard = (text: string, id: string) => {
@@ -85,6 +89,7 @@ export function TokenTable({ licenses, loading, filterStatus = 'all' }: TokenTab
             <th className="px-4 py-3 text-left">Uses</th>
             <th className="px-4 py-3 text-left">Expires</th>
             <th className="px-4 py-3 text-left">Device</th>
+            {(onEdit || onDelete) && <th className="px-4 py-3 text-right">Actions</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -127,6 +132,30 @@ export function TokenTable({ licenses, loading, filterStatus = 'all' }: TokenTab
                   <span className="text-gray-400">-</span>
                 )}
               </td>
+              {(onEdit || onDelete) && (
+                <td className="px-4 py-3 text-right">
+                  <div className="flex items-center justify-end space-x-1">
+                    {onEdit && (
+                      <button
+                        onClick={() => onEdit(license)}
+                        className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                        title="Edit token"
+                      >
+                        <Pencil className="w-4 h-4" strokeWidth={1.5} />
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={() => onDelete(license)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        title="Delete token"
+                      >
+                        <Trash2 className="w-4 h-4" strokeWidth={1.5} />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
