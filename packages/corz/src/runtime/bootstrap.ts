@@ -76,7 +76,7 @@ export function shouldBypass(args: string[]) {
   if (args.includes("--version") || args.includes("-v")) return true
   const command = args.find((x) => !x.startsWith("-"))
   if (!command) return false
-  return command === "activate"
+  return command === "activate" || command === "setup"
 }
 
 export function gateMessage(code: string, message: string): string {
