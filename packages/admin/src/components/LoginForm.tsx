@@ -85,9 +85,7 @@ export function LoginForm() {
           </form>
         </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-400">Default: admin@corz.dev / admin123</p>
-        </div>
+
       </div>
     </div>
   )

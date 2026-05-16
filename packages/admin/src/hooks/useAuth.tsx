@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { useMutation } from 'convex/react'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
+import { useMutation, useQuery } from 'convex/react'
 import { api } from '../convex/_generated/api'
 
 interface Admin {
@@ -10,6 +10,7 @@ interface Admin {
 interface AuthContextType {
   isAuthenticated: boolean
   admin: Admin | null
+  sessionToken: string | null
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => void
   loading: boolean
@@ -17,46 +18,41 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-const AUTH_STORAGE_KEY = 'corz_admin_auth'
-
-interface AuthStorage {
-  isAuthenticated: boolean
-  admin: Admin
-}
+const SESSION_KEY = 'corz_admin_session'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [sessionToken, setSessionToken] = useState<string | null>(null)
   const [admin, setAdmin] = useState<Admin | null>(null)
   const [loading, setLoading] = useState(false)
   const [isRestored, setIsRestored] = useState(false)
   const loginMutation = useMutation(api.admins.login)
+  const logoutMutation = useMutation(api.sessions.logout)
+
+  const storedToken = typeof window !== 'undefined' ? localStorage.getItem(SESSION_KEY) : null
+  const sessionCheck = useQuery(api.sessions.verify, storedToken ? { token: storedToken } : "skip")
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(AUTH_STORAGE_KEY)
-      if (stored) {
-        const parsed: AuthStorage = JSON.parse(stored)
-        if (parsed.isAuthenticated && parsed.admin) {
-          setIsAuthenticated(true)
-          setAdmin(parsed.admin)
+    if (storedToken) {
+      if (sessionCheck) {
+        if (sessionCheck.valid) {
+          setSessionToken(storedToken)
+          setAdmin({ email: sessionCheck.email, name: sessionCheck.name })
+        } else {
+          localStorage.removeItem(SESSION_KEY)
         }
+        setIsRestored(true)
       }
-    } catch {
-      // Invalid storage data, ignore
+    } else {
+      setIsRestored(true)
     }
-    setIsRestored(true)
-  }, [])
+  }, [sessionCheck, storedToken])
 
   useEffect(() => {
-    if (!isRestored) return
-
-    if (isAuthenticated && admin) {
-      const data: AuthStorage = { isAuthenticated, admin }
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data))
-    } else {
-      localStorage.removeItem(AUTH_STORAGE_KEY)
+    if (storedToken && !sessionCheck) {
+      const timer = setTimeout(() => setIsRestored(true), 3000)
+      return () => clearTimeout(timer)
     }
-  }, [isAuthenticated, admin, isRestored])
+  }, [storedToken, sessionCheck])
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
@@ -65,8 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (result.success) {
         const adminData = { email: result.email, name: result.name }
-        setIsAuthenticated(true)
+        setSessionToken(result.sessionToken)
         setAdmin(adminData)
+        localStorage.setItem(SESSION_KEY, result.sessionToken)
         return { success: true }
       } else {
         return { success: false, error: result.error }
@@ -78,18 +75,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const logout = () => {
-    setIsAuthenticated(false)
+  const logout = useCallback(() => {
+    const token = sessionToken
+    setSessionToken(null)
     setAdmin(null)
-    localStorage.removeItem(AUTH_STORAGE_KEY)
-  }
+    localStorage.removeItem(SESSION_KEY)
+    if (token) logoutMutation({ token })
+  }, [sessionToken, logoutMutation])
+
+  const isAuthenticated = sessionToken !== null && admin !== null
 
   if (!isRestored) {
     return null
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, admin, login, logout, loading }}>
+    <AuthContext.Provider value={{ isAuthenticated, admin, sessionToken, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )

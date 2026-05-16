@@ -1,5 +1,14 @@
-import { internalMutation, query } from "./_generated/server"
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server"
 import { v } from "convex/values"
+
+async function requireSession(ctx: any, token: string) {
+  const session = await ctx.db
+    .query("sessions")
+    .withIndex("by_token", (q) => q.eq("token", token))
+    .first()
+  if (!session) throw new Error("Unauthorized: invalid session")
+  return session
+}
 
 function generateToken(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -242,8 +251,16 @@ export const upsertLicense = internalMutation({
   },
 })
 
-export const getAllLicenses = query({
+export const getAllLicensesInternal = internalQuery({
   handler: async (ctx) => {
+    return await ctx.db.query("licenses").order("desc").take(100)
+  },
+})
+
+export const getAllLicenses = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    await requireSession(ctx, args.sessionToken)
     return await ctx.db.query("licenses").order("desc").take(100)
   },
 })
@@ -330,5 +347,90 @@ export const deleteLicenseInternal = internalMutation({
 
     await ctx.db.delete(args.id)
     return { success: true }
+  },
+})
+
+export const adminCreateToken = mutation({
+  args: {
+    sessionToken: v.string(),
+    fullName: v.string(),
+    expiresAt: v.number(),
+    maxUses: v.number(),
+  },
+  returns: v.object({
+    ok: v.literal(true),
+    token: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    await requireSession(ctx, args.sessionToken)
+    const token = generateToken()
+    const userId = generateUserId()
+
+    await ctx.db.insert("licenses", {
+      token,
+      fullName: args.fullName,
+      userId,
+      status: "unused",
+      deviceId: null,
+      maxUses: args.maxUses,
+      usedCount: 0,
+      expiresAt: args.expiresAt,
+      activatedAt: null,
+      createdAt: Date.now(),
+    })
+
+    return { ok: true as const, token }
+  },
+})
+
+export const adminUpdateLicense = mutation({
+  args: {
+    sessionToken: v.string(),
+    id: v.id("licenses"),
+    fullName: v.optional(v.string()),
+    status: v.optional(statusValidator),
+    maxUses: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+  },
+  returns: v.object({
+    ok: v.literal(true),
+  }),
+  handler: async (ctx, args) => {
+    await requireSession(ctx, args.sessionToken)
+
+    const existing = await ctx.db.get(args.id)
+    if (!existing) {
+      throw new Error("License not found")
+    }
+
+    const patch: Record<string, unknown> = {}
+    if (args.fullName !== undefined) patch.fullName = args.fullName
+    if (args.status !== undefined) patch.status = args.status
+    if (args.maxUses !== undefined) patch.maxUses = args.maxUses
+    if (args.expiresAt !== undefined) patch.expiresAt = args.expiresAt
+
+    await ctx.db.patch(args.id, patch)
+    return { ok: true as const }
+  },
+})
+
+export const adminDeleteLicense = mutation({
+  args: {
+    sessionToken: v.string(),
+    id: v.id("licenses"),
+  },
+  returns: v.object({
+    ok: v.literal(true),
+  }),
+  handler: async (ctx, args) => {
+    await requireSession(ctx, args.sessionToken)
+
+    const existing = await ctx.db.get(args.id)
+    if (!existing) {
+      throw new Error("License not found")
+    }
+
+    await ctx.db.delete(args.id)
+    return { ok: true as const }
   },
 })

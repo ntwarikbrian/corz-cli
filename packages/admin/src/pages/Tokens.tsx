@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react'
-import { useQuery } from 'convex/react'
+import { useQuery, useMutation } from 'convex/react'
 import { Plus, Filter } from 'lucide-react'
 import { Layout } from '../components/Layout'
 import { TokenTable, type License } from '../components/TokenTable'
 import { CreateTokenModal } from '../components/CreateTokenModal'
 import { EditTokenModal } from '../components/EditTokenModal'
 import { api } from '../convex/_generated/api'
-import * as AdminApi from '../lib/admin-api'
+import { useAuth } from '../hooks/useAuth'
 
 type StatusFilter = 'all' | 'unused' | 'activated' | 'expired' | 'revoked'
 
@@ -14,8 +14,13 @@ export function Tokens() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingLicense, setEditingLicense] = useState<License | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const licenses = useQuery(api.licenses.getAllLicenses)
+  const { sessionToken } = useAuth()
   const [_creating, setCreating] = useState(false)
+
+  const licenses = useQuery(api.licenses.getAllLicenses, sessionToken ? { sessionToken } : "skip")
+  const createToken = useMutation(api.licenses.adminCreateToken)
+  const updateLicense = useMutation(api.licenses.adminUpdateLicense)
+  const deleteLicense = useMutation(api.licenses.adminDeleteLicense)
 
   const filteredLicenses = useMemo(() => {
     if (!licenses) return undefined
@@ -28,9 +33,10 @@ export function Tokens() {
     expiresAt: number
     maxUses: number
   }): Promise<string | null> => {
+    if (!sessionToken) return null
     setCreating(true)
     try {
-      const result = await AdminApi.createToken(data)
+      const result = await createToken({ sessionToken, ...data })
       return result.token || null
     } catch (error) {
       console.error('Failed to create token:', error)
@@ -48,8 +54,9 @@ export function Tokens() {
     maxUses: number
     expiresAt: number
   }): Promise<boolean> => {
+    if (!sessionToken) return false
     try {
-      await AdminApi.updateLicense(data)
+      await updateLicense({ sessionToken, ...data })
       setEditingLicense(null)
       return true
     } catch (error) {
@@ -60,10 +67,11 @@ export function Tokens() {
   }
 
   const handleDelete = async (license: License) => {
+    if (!sessionToken) return
     if (!window.confirm(`Are you sure you want to delete token "${license.token}"? This action cannot be undone.`)) return
 
     try {
-      await AdminApi.deleteLicense(license._id)
+      await deleteLicense({ sessionToken, id: license._id })
     } catch (error) {
       console.error('Failed to delete token:', error)
       alert('Failed to delete token: ' + (error instanceof Error ? error.message : 'Unknown error'))

@@ -209,7 +209,7 @@ http.route({
       return json({ code: "unauthorized", message: "Unauthorized request" }, { status: 401 })
     }
 
-    const licenses = await ctx.runQuery(internal.licenses.getAllLicenses)
+    const licenses = await ctx.runQuery(internal.licenses.getAllLicensesInternal)
     return json(licenses)
   }),
 })

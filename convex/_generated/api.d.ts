@@ -11,6 +11,7 @@
 import type * as admins from "../admins.js";
 import type * as http from "../http.js";
 import type * as licenses from "../licenses.js";
+import type * as sessions from "../sessions.js";
 
 import type {
   ApiFromModules,
@@ -22,6 +23,7 @@ declare const fullApi: ApiFromModules<{
   admins: typeof admins;
   http: typeof http;
   licenses: typeof licenses;
+  sessions: typeof sessions;
 }>;
 
 /**

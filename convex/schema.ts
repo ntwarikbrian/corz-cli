@@ -26,4 +26,11 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_email", ["email"]),
+
+  sessions: defineTable({
+    admin_id: v.id("admins"),
+    token: v.string(),
+    created_at: v.number(),
+  })
+    .index("by_token", ["token"]),
 })
