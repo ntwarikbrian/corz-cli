@@ -1,4 +1,4 @@
-const SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL
+const SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL ?? import.meta.env.VITE_CONVEX_URL?.replace(".cloud", ".site")
 const ADMIN_KEY = import.meta.env.VITE_CORZ_CONVEX_ADMIN_KEY
 
 async function adminFetch(path: string, body: unknown) {
