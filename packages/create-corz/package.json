@@ -1,0 +1,15 @@
+{
+  "name": "create-corz",
+  "version": "0.0.1",
+  "description": "Scaffold a fullstack React + Express + MySQL app in seconds",
+  "bin": {
+    "create-corz": "./index.js"
+  },
+  "keywords": ["corz", "fullstack", "scaffold", "react", "express", "mysql"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.0.0"
+  }
+}

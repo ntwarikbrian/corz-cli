@@ -30,7 +30,6 @@ import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { ActivateCommand } from "./cli/cmd/activate"
-import { SetupCommand } from "./cli/cmd/setup"
 import { LicenseBootstrap } from "@/runtime/bootstrap"
 import { DbCommand } from "./cli/cmd/db"
 import path from "path"
@@ -163,7 +162,6 @@ const cli = yargs(args)
   .usage("")
   .completion("completion", "generate shell completion script")
   .command(AcpCommand)
-  .command(SetupCommand)
   .command(ActivateCommand)
   .command(McpCommand)
   .command(TuiThreadCommand)
