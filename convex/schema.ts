@@ -31,6 +31,14 @@ export default defineSchema({
     admin_id: v.id("admins"),
     token: v.string(),
     created_at: v.number(),
+    expires_at: v.number(),
   })
     .index("by_token", ["token"]),
+
+  login_attempts: defineTable({
+    email: v.string(),
+    attempted_at: v.number(),
+  })
+    .index("by_email", ["email"])
+    .index("by_email_attempted_at", ["email", "attempted_at"]),
 })

@@ -196,8 +196,13 @@ adminRoute("/admin/delete-license", async (ctx, request) => {
   return json({ ok: true })
 })
 
-adminRoute("/admin/init-default-admin", async (ctx, _request) => {
-  const result = await ctx.runMutation(internal.admins.initDefaultAdmin)
+adminRoute("/admin/init-default-admin", async (ctx, request) => {
+  const body = await request.json().catch(() => null)
+  const password = readString(body, "password")
+  if (!password) {
+    return json({ code: "invalid_request", message: "password is required" }, { status: 400 })
+  }
+  const result = await ctx.runMutation(internal.admins.initDefaultAdmin, { password })
   return json(result)
 })
 

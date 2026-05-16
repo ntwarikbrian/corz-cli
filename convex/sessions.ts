@@ -23,6 +23,11 @@ export const verify = query({
       return { valid: false as const }
     }
 
+    if (Date.now() > session.expires_at) {
+      await ctx.db.delete(session._id)
+      return { valid: false as const }
+    }
+
     const admin = await ctx.db.get(session.admin_id)
     if (!admin) {
       return { valid: false as const }

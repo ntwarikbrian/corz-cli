@@ -6,7 +6,11 @@ async function requireSession(ctx: any, token: string) {
     .query("sessions")
     .withIndex("by_token", (q) => q.eq("token", token))
     .first()
-  if (!session) throw new Error("Unauthorized: invalid session")
+  if (!session) throw new Error("Unauthorized")
+  if (Date.now() > session.expires_at) {
+    await ctx.db.delete(session._id)
+    throw new Error("Unauthorized")
+  }
   return session
 }
 

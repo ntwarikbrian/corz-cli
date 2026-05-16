@@ -12,7 +12,7 @@ interface AuthContextType {
   admin: Admin | null
   sessionToken: string | null
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  logout: () => void
+  logout: () => Promise<void>
   loading: boolean
 }
 
@@ -75,12 +75,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     const token = sessionToken
     setSessionToken(null)
     setAdmin(null)
     localStorage.removeItem(SESSION_KEY)
-    if (token) logoutMutation({ token })
+    if (token) {
+      try { await logoutMutation({ token }) } catch {}
+    }
   }, [sessionToken, logoutMutation])
 
   const isAuthenticated = sessionToken !== null && admin !== null
