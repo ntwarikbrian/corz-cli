@@ -7,7 +7,6 @@ const { EOL } = require("os")
 
 const GREEN = "\x1b[32m"
 const RED = "\x1b[31m"
-const YELLOW = "\x1b[33m"
 const BOLD = "\x1b[1m"
 const DIM = "\x1b[2m"
 const RESET = "\x1b[0m"
@@ -50,9 +49,16 @@ function runAsync(cmd, opts) {
   })
 }
 
+function getBar(elapsed) {
+  const w = 8
+  const p = Math.floor((elapsed / 200) % (w * 2))
+  const pos = p < w ? p : w * 2 - p
+  return DIM + "[" + GREEN + "\u2588".repeat(pos) + DIM + " ".repeat(w - pos) + "]" + RESET
+}
+
 async function main() {
   process.stderr.write(EOL)
-  process.stderr.write("  " + BOLD + "create-corz" + RESET + " " + DIM + "\u2014 fullstack app scaffolder" + RESET + EOL)
+  process.stderr.write("  create-corz " + DIM + "\u2014 fullstack app scaffolder" + RESET + EOL)
   process.stderr.write(EOL)
 
   const folderName = await prompts.text({
@@ -67,19 +73,11 @@ async function main() {
   })
   if (prompts.isCancel(projectName)) process.exit(0)
 
-  for (const ex of [" SIMS", " PIMS", " PIMS"]) {
-    process.stderr.write("\r  " + DIM + "\u2192 Database name examples:" + ex + RESET + "\x1b[0K")
-    await new Promise((r) => setTimeout(r, 500))
-  }
-  process.stderr.write(EOL)
-
   const databaseName = await prompts.text({
     message: "Database name",
     validate: (x) => (x?.trim() ? undefined : "Database name is required"),
   })
   if (prompts.isCancel(databaseName)) process.exit(0)
-
-  process.stderr.write(EOL)
 
   const backendDir = "backend"
   const frontendDir = "frontend"
@@ -97,103 +95,113 @@ async function main() {
     "{{jwtSecret}}": jwtSecret,
   }
 
-  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-  let frame = 0
-  let firstRender = true
-  const taskLines = 3
-  const extraLines = 2
-  const totalLines = taskLines + extraLines
-
-  const tasks = [
-    { name: "Backend dependencies", status: "pending" },
-    { name: "Frontend dependencies", status: "pending" },
-    { name: "corz CLI", status: "pending", optional: true },
-  ]
-
-  function render() {
-    if (!firstRender) {
-      process.stderr.write("\x1b[" + totalLines + "A")
-    }
-    firstRender = false
-    const s = frames[frame % frames.length]
-    frame++
-    for (const t of tasks) {
-      let line
-      if (t.status === "running") {
-        line = "  " + s + " " + t.name + "\x1b[0K"
-      } else if (t.status === "done") {
-        line = "  " + GREEN + "\u2714" + RESET + " " + t.name + "  " + DIM + "(" + t.elapsed + "s)" + RESET + "\x1b[0K"
-      } else if (t.status === "failed") {
-        line = "  " + RED + "\u2716" + RESET + " " + t.name + "\x1b[0K"
-      } else if (t.status === "skipped") {
-        line = "  " + YELLOW + "\u26A0" + RESET + " " + t.name + "  " + DIM + "run " + BOLD + "npm install -g corz" + RESET + DIM + " manually" + RESET + "\x1b[0K"
-      } else {
-        line = "    " + DIM + t.name + RESET + "\x1b[0K"
-      }
-      process.stderr.write(line + EOL)
-    }
-    process.stderr.write("\r  " + DIM + "\u2500".repeat(30) + RESET + "\x1b[0K" + EOL)
-    process.stderr.write("\r  Elapsed: " + elapsed + "s\x1b[0K")
-  }
-
   try {
     fs.mkdirSync(target, { recursive: true })
-
-    const sp = prompts.spinner()
-    sp.start("Scaffolding project...")
     copyDir(path.join(templateDir, "backend"), path.join(target, backendDir.trim()), replace)
     copyDir(path.join(templateDir, "database"), path.join(target, "database"), replace)
     copyDir(path.join(templateDir, "frontend"), path.join(target, frontendDir.trim()), replace)
-    sp.stop("Project files created")
-    process.stderr.write(EOL)
-
-    const startTime = Date.now()
-    const renderTimer = setInterval(render, 100)
-
-    tasks[0].fn = () => runAsync("npm install", { cwd: path.join(target, backendDir.trim()), timeout: 120000 })
-    tasks[1].fn = () => runAsync("npm install", { cwd: path.join(target, frontendDir.trim()), timeout: 120000 })
-    tasks[2].fn = async () => {
-      try {
-        await runAsync("npm install -g corz", { timeout: 60000 })
-      } catch {
-        throw new Error("optional")
-      }
-    }
-
-    await Promise.allSettled(
-      tasks.map(async (t) => {
-        t.status = "running"
-        const ts = Date.now()
-        render()
-        try {
-          await t.fn()
-          t.status = "done"
-          t.elapsed = ((Date.now() - ts) / 1000).toFixed(1)
-        } catch (err) {
-          if (t.optional) {
-            t.status = "skipped"
-          } else {
-            t.status = "failed"
-          }
-        }
-        render()
-      })
-    )
-
-    clearInterval(renderTimer)
-    elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-    render()
   } catch (err) {
-    process.stderr.write("\r  " + RED + "\u2716 Scaffolding failed" + RESET + "\x1b[0K" + EOL)
+    process.stderr.write("  " + RED + "\u2716" + RESET + " Scaffolding failed" + EOL)
     process.stderr.write("  " + RED + err.message + RESET + EOL)
     process.exit(1)
   }
 
-  process.stderr.write(EOL)
+  process.stderr.write("  " + GREEN + "\u2714" + RESET + " Project files created" + EOL)
   process.stderr.write(EOL)
 
-  const done = GREEN + "\u2714" + RESET + " " + BOLD + "Project \"" + projectName.trim() + "\" created!" + RESET + "  " + DIM + "(" + elapsed + "s)" + RESET
-  process.stderr.write("  " + done + EOL)
+  const tasks = [
+    {
+      label: "Installing backend dependencies",
+      doneLabel: "Backend dependencies installed",
+      run: () => runAsync("npm install", { cwd: path.join(target, backendDir.trim()), timeout: 120000 }),
+    },
+    {
+      label: "Installing frontend dependencies",
+      doneLabel: "Frontend dependencies installed",
+      run: () => runAsync("npm install", { cwd: path.join(target, frontendDir.trim()), timeout: 120000 }),
+    },
+    {
+      label: "Installing corz CLI",
+      doneLabel: "corz CLI installed",
+      failedLabel: "corz CLI install skipped",
+      run: () => runAsync("npm install -g corz", { timeout: 60000 }),
+    },
+  ]
+
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+  const started = Date.now()
+  const state = tasks.map((t) => ({
+    ...t,
+    start: Date.now(),
+    endTime: 0,
+    done: false,
+    failed: false,
+  }))
+
+  for (const _ of state) {
+    process.stderr.write("  " + EOL)
+  }
+
+  const promises = state.map((s) =>
+    s
+      .run()
+      .then(
+        () => {
+          s.done = true
+          s.endTime = Date.now()
+        },
+        () => {
+          s.done = true
+          s.failed = true
+          s.endTime = Date.now()
+        },
+      ),
+  )
+
+  function renderLine(s) {
+    const now = s.done ? s.endTime : Date.now()
+    const elapsed = ((now - s.start) / 1000).toFixed(1) + "s"
+    const bar = s.done
+      ? DIM + "[" + GREEN + "\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588" + DIM + "]" + RESET
+      : getBar(Date.now() - s.start)
+    if (s.done) {
+      const sym = s.failed ? RED + "\u2716" + RESET : GREEN + "\u2714" + RESET
+      const label = s.failed ? (s.failedLabel || s.label) : (s.doneLabel || s.label)
+      return "  " + sym + " " + label + "  " + DIM + elapsed + RESET + " " + bar + "\x1b[0K"
+    }
+    return "  " + frames[fi % frames.length] + " " + s.label + "  " + DIM + elapsed + RESET + " " + bar + "\x1b[0K"
+  }
+
+  let fi = 0
+  let stopped = false
+  const interval = setInterval(() => {
+    if (stopped) return
+    fi++
+    process.stderr.write("\x1b[" + state.length + "A")
+    for (const s of state) {
+      process.stderr.write(renderLine(s) + EOL)
+    }
+    if (state.every((s) => s.done)) {
+      stopped = true
+      clearInterval(interval)
+    }
+  }, 150)
+
+  await Promise.allSettled(promises)
+  if (!stopped) {
+    stopped = true
+    clearInterval(interval)
+    process.stderr.write("\x1b[" + state.length + "A")
+    for (const s of state) {
+      process.stderr.write(renderLine(s) + EOL)
+    }
+  }
+
+  const totalTime = ((Date.now() - started) / 1000).toFixed(1)
+  process.stderr.write(EOL)
+  process.stderr.write(
+    "  " + GREEN + "\u2714" + RESET + " " + BOLD + 'Project "' + projectName.trim() + '" created!' + RESET + "  " + DIM + "completed in " + totalTime + "s" + RESET + EOL,
+  )
   process.stderr.write(EOL)
 
   process.stderr.write("  " + BOLD + "1. Start backend:" + RESET + EOL)
