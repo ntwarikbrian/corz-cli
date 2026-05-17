@@ -1,11 +1,18 @@
 {
   "name": "create-corz",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Scaffold a fullstack React + Express + MySQL app in seconds",
   "bin": {
-    "create-corz": "./index.js"
+    "create-corz": "index.js"
   },
-  "keywords": ["corz", "fullstack", "scaffold", "react", "express", "mysql"],
+  "keywords": [
+    "corz",
+    "fullstack",
+    "scaffold",
+    "react",
+    "express",
+    "mysql"
+  ],
   "publishConfig": {
     "access": "public"
   },

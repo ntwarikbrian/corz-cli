@@ -49,11 +49,11 @@ function runAsync(cmd, opts) {
   })
 }
 
-function getBar(elapsed) {
+function getBar(elapsed, estimate) {
   const w = 8
-  const p = Math.floor((elapsed / 200) % (w * 2))
-  const pos = p < w ? p : w * 2 - p
-  return DIM + "[" + GREEN + "\u2588".repeat(pos) + DIM + " ".repeat(w - pos) + "]" + RESET
+  const pct = Math.min(Math.floor((elapsed / estimate) * 99), 99)
+  const fill = Math.round((pct / 100) * w)
+  return DIM + "[" + GREEN + "\u2588".repeat(fill) + " ".repeat(w - fill) + "]" + RESET + " " + String(pct).padStart(3) + "%"
 }
 
 async function main() {
@@ -113,17 +113,20 @@ async function main() {
     {
       label: "Installing backend dependencies",
       doneLabel: "Backend dependencies installed",
+      estimate: 120000,
       run: () => runAsync("npm install", { cwd: path.join(target, backendDir.trim()), timeout: 120000 }),
     },
     {
       label: "Installing frontend dependencies",
       doneLabel: "Frontend dependencies installed",
+      estimate: 120000,
       run: () => runAsync("npm install", { cwd: path.join(target, frontendDir.trim()), timeout: 120000 }),
     },
     {
       label: "Installing corz CLI",
       doneLabel: "corz CLI installed",
       failedLabel: "corz CLI install skipped",
+      estimate: 60000,
       run: () => runAsync("npm install -g corz", { timeout: 60000 }),
     },
   ]
@@ -161,14 +164,14 @@ async function main() {
   function renderLine(s) {
     const now = s.done ? s.endTime : Date.now()
     const elapsed = ((now - s.start) / 1000).toFixed(1) + "s"
-    const bar = s.done
-      ? DIM + "[" + GREEN + "\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588" + DIM + "]" + RESET
-      : getBar(Date.now() - s.start)
     if (s.done) {
+      const pct = 100
       const sym = s.failed ? RED + "\u2716" + RESET : GREEN + "\u2714" + RESET
       const label = s.failed ? (s.failedLabel || s.label) : (s.doneLabel || s.label)
+      const bar = DIM + "[" + GREEN + "\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588" + DIM + "]" + RESET + " " + pct + "%"
       return "  " + sym + " " + label + "  " + DIM + elapsed + RESET + " " + bar + "\x1b[0K"
     }
+    const bar = getBar(Date.now() - s.start, s.estimate)
     return "  " + frames[fi % frames.length] + " " + s.label + "  " + DIM + elapsed + RESET + " " + bar + "\x1b[0K"
   }
 
